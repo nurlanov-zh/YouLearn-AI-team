@@ -15,6 +15,12 @@ from mark_detector import MarkDetector
 from os_detector import detect_os
 from pose_estimator import PoseEstimator
 from stabilizer import Stabilizer
+import os
+
+
+directory = "output"
+if not os.path.exists(directory):
+    os.makedirs(directory)
 
 print("OpenCV version: {}".format(cv2.__version__))
 
@@ -40,18 +46,26 @@ def get_face(detector, img_queue, box_queue):
         box_queue.put(box)
 
 
-def main():
+def run_and_save(video_src=None, person_nr=1):
     """MAIN"""
     # Video source from webcam or video file.
-    video_src = args.cam if args.cam is not None else args.video
-    if video_src is None:
-        print("Warning: video source not assigned, default webcam will be used.")
-        video_src = 0
+    # video_src = args.cam if args.cam is not None else args.video
+    if video_src is None or video_src == 0 or video_src == "":
+        print("Error: video source not assigned.")
+        return 0
 
+    video_without_ext = os.path.splitext(os.path.basename(video_src))[0]
+    dir_to_save = os.path.join(directory, str(person_nr), video_without_ext)
+    print(dir_to_save)
+    if not os.path.exists(dir_to_save):
+        os.makedirs(dir_to_save)
+
+    print("Reading: ", video_src)
     cap = cv2.VideoCapture(video_src)
     # if video_src == 0:
     #     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    _, sample_frame = cap.read()
+    ret, sample_frame = cap.read()
+    print("Has read: ", ret)
 
     # Introduce mark_detector to detect landmarks.
     mark_detector = MarkDetector()
@@ -78,11 +92,13 @@ def main():
 
     tm = cv2.TickMeter()
 
+    ind = 0
     while True:
         # Read frame, crop it, flip it, suits your needs.
         frame_got, frame = cap.read()
         if frame_got is False:
             break
+        ind += 1
 
         # Crop it if frame is larger than expected.
         # frame = frame[0:480, 300:940]
@@ -142,21 +158,30 @@ def main():
 
             print(steady_pose.shape, type(steady_pose))
 
+            # SAVE IT
+            np.savez(os.path.join(dir_to_save, "frame_"+str(ind)), landmarks=marks, directions=steady_pose)
+            print(steady_pose)
+
             # Uncomment following line to draw pose annotation on frame.
             # pose_estimator.draw_annotation_box(
             #     frame, pose[0], pose[1], color=(255, 128, 128))
 
             # Uncomment following line to draw stabile pose annotation on frame.
-            pose_estimator.draw_annotation_box(
-                frame, steady_pose[0], steady_pose[1], color=(128, 255, 128))
+            # pose_estimator.draw_annotation_box(
+            #     frame, steady_pose[0], steady_pose[1], color=(128, 255, 128))
 
             # Uncomment following line to draw head axes on frame.
-            pose_estimator.draw_axes(frame, steady_pose[0], steady_pose[1])
+            # pose_estimator.draw_axes(frame, steady_pose[0], steady_pose[1])
+
+        else:
+            marks = np.zeros((68, 2))
+            steady_pose = np.zeros((2, 3))
+            np.savez(os.path.join(dir_to_save, "frame_" + str(ind)), landmarks=marks, directions=steady_pose)
 
         # Show preview.
-        cv2.imshow("Preview", frame)
-        if cv2.waitKey(10) == 27:
-            break
+        # cv2.imshow("Preview", frame)
+        # if cv2.waitKey(10) == 27:
+        #     break
 
     # Clean up the multiprocessing process.
     # box_process.terminate()
@@ -164,4 +189,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    for root, dirs, files in os.walk("data"):
+        for file in files:
+            if file.endswith(".mp4"):
+                print(os.path.join(root, file))
+                run_and_save(os.path.join(root, file))
