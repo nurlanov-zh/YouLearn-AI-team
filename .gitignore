@@ -133,3 +133,9 @@ dmypy.json
 */.idea/
 .idea/
 
+**/data
+*.npz
+*.npy
+*.h5
+
+
