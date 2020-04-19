@@ -39,7 +39,20 @@ if __name__ == '__main__':
     while cap.isOpened():
         ret_val, image = cap.read()
 
-        humans = e.inference(image)
+        im_w, im_h = image.shape[:2]
+        print(image.shape)
+        print(np.max(image), np.min(image))
+        if im_w < im_h:
+            # Crop it
+            target_ratio = 432.0 / 368
+            im_h_new = int(im_w / target_ratio)
+            delta_h = im_h - im_h_new
+            image = image[:, delta_h // 2: im_h - (delta_h // 2), :]
+
+        print(image.shape)
+        print(np.max(image), np.min(image))
+
+        humans = e.inference(image, resize_to_default=False, upsample_size=4.0)
         if not args.showBG:
             image = np.zeros(image.shape)
         image = TfPoseEstimator.draw_humans(image, humans, imgcopy=False)
